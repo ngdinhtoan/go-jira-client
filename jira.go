@@ -5,11 +5,11 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
-	"math"
 )
 
 type Jira struct {
@@ -63,13 +63,34 @@ type IssueList struct {
 }
 
 type IssueFields struct {
-	IssueType   *IssueType
-	Summary     string
-	Description string
-	Reporter    *User
-	Assignee    *User
-	Project     *JiraProject
-	Created     string
+	IssueType   *IssueType       `json:"issuetype"`
+	Summary     string           `json:"summary"`
+	Description string           `json:"description"`
+	Reporter    *User            `json:"reporter"`
+	Assignee    *User            `json:"assignee"`
+	Project     *JiraProject     `json:"project"`
+	Created     string           `json:"created"`
+	Status      *IssueStatus     `json:"status"`
+	Priority    *IssuePriority   `json:"priority"`
+	Resolution  *IssueResolution `json:"resolution"`
+}
+
+type IssuePriority struct {
+	ID      string `json:"id"`
+	Self    string `json:"self"`
+	IconURL string `json:"iconUrl"`
+	Name    string `json:"name"`
+}
+
+type IssueResolution struct {
+	ID          string `json:"id"`
+	Self        string `json:"self"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type IssueStatus struct {
+	Name string `json:"name"`
 }
 
 type IssueType struct {
@@ -90,44 +111,44 @@ type JiraProject struct {
 }
 
 type ActivityItem struct {
-	Title    string    `xml:"title"json:"title"`
-	Id       string    `xml:"id"json:"id"`
-	Link     []Link    `xml:"link"json:"link"`
-	Updated  time.Time `xml:"updated"json:"updated"`
-	Author   Person    `xml:"author"json:"author"`
-	Summary  Text      `xml:"summary"json:"summary"`
-	Category Category  `xml:"category"json:"category"`
+	Title    string    `xml:"title" json:"title"`
+	Id       string    `xml:"id" json:"id"`
+	Link     []Link    `xml:"link" json:"link"`
+	Updated  time.Time `xml:"updated" json:"updated"`
+	Author   Person    `xml:"author" json:"author"`
+	Summary  Text      `xml:"summary" json:"summary"`
+	Category Category  `xml:"category" json:"category"`
 }
 
 type ActivityFeed struct {
-	XMLName  xml.Name        `xml:"http://www.w3.org/2005/Atom feed"json:"xml_name"`
-	Title    string          `xml:"title"json:"title"`
-	Id       string          `xml:"id"json:"id"`
-	Link     []Link          `xml:"link"json:"link"`
-	Updated  time.Time       `xml:"updated,attr"json:"updated"`
-	Author   Person          `xml:"author"json:"author"`
-	Entries  []*ActivityItem `xml:"entry"json:"entries"`
+	XMLName xml.Name        `xml:"http://www.w3.org/2005/Atom feed" json:"xml_name"`
+	Title   string          `xml:"title" json:"title"`
+	Id      string          `xml:"id" json:"id"`
+	Link    []Link          `xml:"link" json:"link"`
+	Updated time.Time       `xml:"updated,attr" json:"updated"`
+	Author  Person          `xml:"author" json:"author"`
+	Entries []*ActivityItem `xml:"entry" json:"entries"`
 }
-	
+
 type Category struct {
-	Term string `xml:"term,attr"json:"term"`
+	Term string `xml:"term,attr" json:"term"`
 }
 
 type Link struct {
-	Rel  string `xml:"rel,attr,omitempty"json:"rel"`
-	Href string `xml:"href,attr"json:"href"`
+	Rel  string `xml:"rel,attr,omitempty" json:"rel"`
+	Href string `xml:"href,attr" json:"href"`
 }
 
 type Person struct {
-	Name     string `xml:"name"json:"name"`
-	URI      string `xml:"uri"json:"uri"`
-	Email    string `xml:"email"json:"email"`
-	InnerXML string `xml:",innerxml"json:"inner_xml"`
+	Name     string `xml:"name" json:"name"`
+	URI      string `xml:"uri" json:"uri"`
+	Email    string `xml:"email "json:"email"`
+	InnerXML string `xml:",innerxml" json:"inner_xml"`
 }
 
 type Text struct {
-	Type string `xml:"type,attr,omitempty"json:"type"`
-	Body string `xml:",chardata"json:"body"`
+	Type string `xml:"type,attr,omitempty" json:"type"`
+	Body string `xml:",chardata" json:"body"`
 }
 
 func NewJira(baseUrl string, apiPath string, activityPath string, auth *Auth) *Jira {
@@ -148,7 +169,7 @@ const (
 )
 
 func (j *Jira) buildAndExecRequest(method string, url string) []byte {
-	
+
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		panic("Error while building jira request")
@@ -166,7 +187,7 @@ func (j *Jira) buildAndExecRequest(method string, url string) []byte {
 }
 
 func (j *Jira) UserActivity(user string) (ActivityFeed, error) {
-	url := j.BaseUrl + j.ActivityPath + "?streams=" + url.QueryEscape("user IS " + user)
+	url := j.BaseUrl + j.ActivityPath + "?streams=" + url.QueryEscape("user IS "+user)
 
 	return j.Activity(url)
 }
@@ -197,8 +218,8 @@ func (j *Jira) IssuesAssignedTo(user string, maxResults int, startAt int) IssueL
 	}
 
 	for _, issue := range issues.Issues {
-    	t, _ := time.Parse(dateLayout, issue.Fields.Created)
-    	issue.CreatedAt = t
+		t, _ := time.Parse(dateLayout, issue.Fields.Created)
+		issue.CreatedAt = t
 	}
 
 	pagination := Pagination{
@@ -222,7 +243,7 @@ func (j *Jira) Issue(id string) Issue {
 	var issue Issue
 	err := json.Unmarshal(contents, &issue)
 	if err != nil {
-		fmt.Println("%s", err)
+		fmt.Printf("%s, Error: %v", string(contents), err)
 	}
 
 	return issue

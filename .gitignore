@@ -1,2 +1,5 @@
 .DS_Store
 examples/config.yml
+
+.idea
+*.iml
